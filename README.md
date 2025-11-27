@@ -178,7 +178,7 @@ uv run pytest --cov=snaplint --cov-report=html
 uv run pytest tests/test_e2e.py -v
 ```
 
-### Local Installation.
+### Local Installation
 
 Install as a global command for testing:
 
