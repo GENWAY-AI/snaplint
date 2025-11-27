@@ -133,19 +133,19 @@ jobs:
           name: dist
           path: dist/
 
-  # publish-release:
-  #   needs: build-release
-  #   runs-on: ubuntu-latest
-  #   permissions:
-  #     id-token: write  # Required for trusted publishing
-  #   steps:
-  #     - name: Download artifacts
-  #       uses: actions/download-artifact@v4
-  #       with:
-  #         name: dist
-  #         path: dist/
-  #
-  #     - name: Publish to PyPI
-  #       uses: pypa/gh-action-pypi-publish@release/v1
-  #       # Uses trusted publishing - configure at https://pypi.org/manage/account/publishing/
-  #       # No API token needed when using trusted publishing
+  publish-release:
+    needs: build-release
+    runs-on: ubuntu-latest
+    permissions:
+      id-token: write # Required for trusted publishing
+    steps:
+      - name: Download artifacts
+        uses: actions/download-artifact@v4
+        with:
+          name: dist
+          path: dist/
+
+      # - name: Publish to PyPI
+      #   uses: pypa/gh-action-pypi-publish@release/v1
+      # Uses trusted publishing - configure at https://pypi.org/manage/account/publishing/
+      # No API token needed when using trusted publishing
