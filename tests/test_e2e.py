@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import gzip
 import subprocess
 import sys
 from pathlib import Path
@@ -91,7 +92,7 @@ def run_snaplint(
 
 def test_e2e_full_workflow(project_dir: Path):
     """Test complete workflow: take snapshot, modify code, diff changes."""
-    snapshot_file = project_dir / "lint.snapshot.json"
+    snapshot_file = project_dir / "lint.snapshot.json.gz"
 
     # Step 1: Run linter and take initial snapshot
     initial_lint_output = run_flake8(project_dir)
@@ -107,7 +108,8 @@ def test_e2e_full_workflow(project_dir: Path):
     # Verify snapshot is valid JSON
     import json
 
-    snapshot_data = json.loads(snapshot_file.read_text())
+    with gzip.open(snapshot_file, "rt", encoding="utf-8") as f:
+        snapshot_data = json.load(f)
     assert snapshot_data["version"] == "1"
     assert len(snapshot_data["files"]) > 0
 
@@ -168,7 +170,7 @@ def format_string(text):
 
 def test_e2e_code_refactoring_preserves_errors(project_dir: Path):
     """Test that refactoring code (changing line numbers) is detected properly."""
-    snapshot_file = project_dir / "lint.snapshot.json"
+    snapshot_file = project_dir / "lint.snapshot.json.gz"
     utils_file = project_dir / "src" / "utils.py"
 
     # Initial code with error on line 3
@@ -212,7 +214,7 @@ def calculate(x, y):
 
 def test_e2e_multiple_files_complex_diff(project_dir: Path):
     """Test diff across multiple files with various changes."""
-    snapshot_file = project_dir / "lint.snapshot.json"
+    snapshot_file = project_dir / "lint.snapshot.json.gz"
 
     # Take initial snapshot
     initial_lint_output = run_flake8(project_dir)
@@ -261,7 +263,7 @@ def get_config():
 
 def test_e2e_order_change_detection(project_dir: Path):
     """Test that changes in error order are detected."""
-    snapshot_file = project_dir / "lint.snapshot.json"
+    snapshot_file = project_dir / "lint.snapshot.json.gz"
     test_file = project_dir / "order_test.py"
 
     # Create file with multiple errors in specific order
@@ -304,7 +306,7 @@ unused_b = 2
 
 def test_e2e_snapshot_with_no_errors(project_dir: Path):
     """Test taking snapshot and diffing when there are no lint errors."""
-    snapshot_file = project_dir / "lint.snapshot.json"
+    snapshot_file = project_dir / "lint.snapshot.json.gz"
     clean_file = project_dir / "clean.py"
 
     # Create a file with no lint errors
@@ -337,7 +339,8 @@ def hello_world():
     # Verify snapshot has no files or empty files
     import json
 
-    snapshot_data = json.loads(snapshot_file.read_text())
+    with gzip.open(snapshot_file, "rt", encoding="utf-8") as f:
+        snapshot_data = json.load(f)
     assert snapshot_data["version"] == "1"
     # Files list should be empty or very small
     assert len(snapshot_data["files"]) == 0 or all(
@@ -354,7 +357,7 @@ def hello_world():
 
 def test_e2e_binary_file_handling(project_dir: Path):
     """Test that snaplint handles errors in non-existent or binary files gracefully."""
-    snapshot_file = project_dir / "lint.snapshot.json"
+    snapshot_file = project_dir / "lint.snapshot.json.gz"
 
     # Create fake linter output pointing to non-existent file
     fake_lint_output = f"{project_dir}/nonexistent.py:1:1: E001 Some error\n"
@@ -372,7 +375,7 @@ def test_e2e_binary_file_handling(project_dir: Path):
 
 def test_e2e_large_codebase_simulation(project_dir: Path):
     """Test with a larger number of files and errors."""
-    snapshot_file = project_dir / "lint.snapshot.json"
+    snapshot_file = project_dir / "lint.snapshot.json.gz"
 
     # Create multiple files with various errors
     for i in range(10):
@@ -410,7 +413,8 @@ def func_{i}(x):
     # Verify snapshot contains multiple files
     import json
 
-    snapshot_data = json.loads(snapshot_file.read_text())
+    with gzip.open(snapshot_file, "rt", encoding="utf-8") as f:
+        snapshot_data = json.load(f)
     assert len(snapshot_data["files"]) >= 5  # Should have many files
 
     # Fix errors in half the files
@@ -436,7 +440,7 @@ def func_{i}(x):
 
 def test_e2e_update_snapshot_workflow(project_dir: Path):
     """Test the workflow of updating a snapshot after code changes."""
-    snapshot_file = project_dir / "lint.snapshot.json"
+    snapshot_file = project_dir / "lint.snapshot.json.gz"
 
     # Use a separate directory to avoid interference from fixture files
     isolated_dir = project_dir / "isolated"

@@ -20,7 +20,7 @@ uv tool install snaplint
 
 ```bash
 flake8 src/ | snaplint take-snapshot
-# Creates .snaplint/snapshot.flake8.json
+# Creates .snaplint/snapshot.flake8.json.gz
 ```
 
 2. **Check for new issues** in CI or locally:
@@ -43,9 +43,9 @@ The diff command shows you:
 
 ```bash
 # Each linter gets its own snapshot
-flake8 . | snaplint take-snapshot    # → .snaplint/snapshot.flake8.json
-mypy . | snaplint take-snapshot      # → .snaplint/snapshot.mypy.json
-pylint src/ | snaplint take-snapshot # → .snaplint/snapshot.pylint.json
+flake8 . | snaplint take-snapshot    # → .snaplint/snapshot.flake8.json.gz
+mypy . | snaplint take-snapshot      # → .snaplint/snapshot.mypy.json.gz
+pylint src/ | snaplint take-snapshot # → .snaplint/snapshot.pylint.json.gz
 ```
 
 ### Custom Snapshot Paths
@@ -79,7 +79,7 @@ When comparing snapshots:
 - **Count changes** show if the total number of issues changed
 - **File-level errors** (line 0) are fully supported
 
-Snapshots are stored as JSON with version metadata for forward compatibility.
+Snapshots are stored as gzip-compressed JSON (`.json.gz`) with version metadata for forward compatibility.
 
 ## CI Integration
 

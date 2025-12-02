@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import asyncio
+import gzip
 import hashlib
 import json
 import sys
@@ -210,18 +211,22 @@ def build_snapshot_file(lines: Iterable[str]) -> SnapshotFile:
     return SnapshotFile(files=tuple(file_snapshots))
 
 
-def write_snapshot(snapshot: SnapshotFile, output: IO[str]) -> None:
-    """Write a SnapshotFile to JSON output."""
+def write_snapshot(snapshot: SnapshotFile, output: IO[bytes]) -> None:
+    """Write a SnapshotFile to gzipped JSON output."""
     json_data = snapshot.model_dump(mode="json")
-    json.dump(json_data, output, indent=2)
-    output.write("\n")
+    json_str = json.dumps(json_data, indent=2) + "\n"
+    output.write(gzip.compress(json_str.encode("utf-8")))
 
 
-def read_snapshot(snapshot_file: IO[str]) -> SnapshotFile:
-    """Read a snapshot file and build a SnapshotFile."""
+def read_snapshot(snapshot_file: IO[bytes]) -> SnapshotFile:
+    """Read a gzipped snapshot file and build a SnapshotFile."""
     try:
-        data = json.load(snapshot_file)
+        compressed_data = snapshot_file.read()
+        json_str = gzip.decompress(compressed_data).decode("utf-8")
+        data = json.loads(json_str)
         return SnapshotFile.model_validate(data)
+    except gzip.BadGzipFile as e:
+        raise SnapshotReadError(f"Invalid gzip file: {e}") from e
     except json.JSONDecodeError as e:
         raise SnapshotReadError(f"Invalid JSON in snapshot file: {e}") from e
     except Exception as e:

@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import gzip
 import io
 import json
 import sys
@@ -20,7 +21,7 @@ def mock_argv(monkeypatch, *args: str):
 
 @pytest.fixture
 def snapshot_file(tmp_path: Path) -> Path:
-    return tmp_path / "lint.snapshot.json"
+    return tmp_path / "lint.snapshot.json.gz"
 
 
 @pytest.fixture
@@ -177,8 +178,9 @@ def test_cli_take_snapshot(
 
     assert return_code == 0
 
-    # Verify snapshot is valid JSON
-    snapshot_data = json.loads(snapshot_file.read_text())
+    # Verify snapshot is valid gzipped JSON
+    with gzip.open(snapshot_file, "rt", encoding="utf-8") as f:
+        snapshot_data = json.load(f)
     assert snapshot_data["version"] == "1"
     assert len(snapshot_data["files"]) == 1
 

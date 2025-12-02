@@ -56,7 +56,7 @@ def _detect_linter_from_lines(lines: list[str]) -> str:
 def _get_default_snapshot_path(linter_type: str) -> Path:
     """Get the default snapshot path for a given linter type."""
     snaplint_dir = Path(".snaplint")
-    return snaplint_dir / f"snapshot.{linter_type}.json"
+    return snaplint_dir / f"snapshot.{linter_type}.json.gz"
 
 
 def main() -> int:
@@ -95,7 +95,7 @@ def _main() -> int:
         default=None,
         help=(
             "Path to the snapshot file. If omitted, auto-detects linter "
-            "and uses .snaplint/snapshot.<linter>.json"
+            "and uses .snaplint/snapshot.<linter>.json.gz"
         ),
     )
     parser_diff.add_argument(
@@ -115,7 +115,7 @@ def _main() -> int:
         default=None,
         help=(
             "Path to the snapshot file. If omitted, auto-detects linter "
-            "and uses .snaplint/snapshot.<linter>.json"
+            "and uses .snaplint/snapshot.<linter>.json.gz"
         ),
     )
 
@@ -155,7 +155,7 @@ def _run_take_snapshot(args: argparse.Namespace) -> int:
     snapshot_file = build_snapshot_file(input_lines)
 
     try:
-        with snapshot_path.open("w", encoding="utf-8") as f:
+        with snapshot_path.open("wb") as f:
             write_snapshot(snapshot_file, f)
     except OSError as e:
         raise SnapshotReadError(
@@ -197,7 +197,7 @@ def _run_diff(args: argparse.Namespace) -> int:
         print(f"Using snapshot file: {snapshot_path}", file=sys.stderr)
 
     try:
-        with snapshot_path.open("r", encoding="utf-8") as f:
+        with snapshot_path.open("rb") as f:
             snapshot_file = read_snapshot(f)
     except OSError as e:
         raise SnapshotReadError(
