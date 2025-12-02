@@ -4,7 +4,7 @@ build-backend = "hatchling.build"
 
 [project]
 name = "snaplint"
-version = "0.4.2"
+version = "0.5.0"
 description = "Snapshot linter errors and track only new issues — perfect for incremental linter adoption on large codebases"
 readme = "README.md"
 requires-python = ">=3.10"
