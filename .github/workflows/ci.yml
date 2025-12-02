@@ -136,6 +136,7 @@ jobs:
   publish-release:
     needs: build-release
     runs-on: ubuntu-latest
+    environment: pypi-production
     permissions:
       id-token: write # Required for trusted publishing
     steps:
