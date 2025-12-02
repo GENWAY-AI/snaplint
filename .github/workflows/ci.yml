@@ -145,7 +145,7 @@ jobs:
           name: dist
           path: dist/
 
-      # - name: Publish to PyPI
-      #   uses: pypa/gh-action-pypi-publish@release/v1
+      - name: Publish to PyPI
+        uses: pypa/gh-action-pypi-publish@release/v1
       # Uses trusted publishing - configure at https://pypi.org/manage/account/publishing/
       # No API token needed when using trusted publishing
