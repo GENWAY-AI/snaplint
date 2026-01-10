@@ -39,10 +39,11 @@ The diff command shows you:
 
 ### Auto-Detection
 
-`snaplint` automatically detects your linter (flake8, mypy, pylint, or generic format) and creates appropriately named snapshots in `.snaplint/`:
+`snaplint` automatically detects your linter (ruff, flake8, mypy, pylint, or generic format) and creates appropriately named snapshots in `.snaplint/`:
 
 ```bash
 # Each linter gets its own snapshot
+ruff check . --output-format concise | snaplint take-snapshot  # → .snaplint/snapshot.ruff.json.gz
 flake8 . | snaplint take-snapshot    # → .snaplint/snapshot.flake8.json.gz
 mypy . | snaplint take-snapshot      # → .snaplint/snapshot.mypy.json.gz
 pylint src/ | snaplint take-snapshot # → .snaplint/snapshot.pylint.json.gz
@@ -112,6 +113,7 @@ Add to `.pre-commit-config.yaml`:
 
 `snaplint` automatically recognizes output from:
 
+- **ruff** (use `--output-format concise`)
 - **flake8** and compatible tools (flake9, etc.)
 - **mypy**
 - **pylint**
