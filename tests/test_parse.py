@@ -140,6 +140,19 @@ from snaplint.parse import parse_lines
                 message="Line too long (90 > 88)",
             ),
         ),
+        # Edge case: [*] appears in message content, NOT as Ruff marker (should be flake8)
+        (
+            "src/docs.py:5:1: E501 Line contains [*] pattern in docstring",
+            IssueLine(
+                original="src/docs.py:5:1: E501 Line contains [*] pattern in docstring",
+                tool="flake",  # [*] is not at start of message, so not Ruff
+                path="src/docs.py",
+                line=5,
+                column=1,
+                code="E501",
+                message="Line contains [*] pattern in docstring",
+            ),
+        ),
     ],
 )
 def test_parse_line_success(line: str, expected: IssueLine):

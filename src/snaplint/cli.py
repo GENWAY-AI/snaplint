@@ -17,7 +17,7 @@ from snaplint.snapshot import build_snapshot_file, read_snapshot, write_snapshot
 #   "Found 8 errors."
 #   "[*] 6 fixable with the `--fix` option."
 RUFF_SUMMARY_RE = re.compile(
-    r"^(Found \d+ errors?\.|\[\*\] \d+ fixable with the .--fix. option)"
+    r"^(Found \d+ errors?\.|\[\*\] \d+ fixable with the .--fix. option\.)"
 )
 
 
@@ -51,6 +51,39 @@ def _has_flake8_style_error(line: str) -> bool:
     return _looks_like_lint_code(first_word)
 
 
+def _has_ruff_autofix_marker(line: str) -> bool:
+    """Check if a line has Ruff's [*] auto-fix marker in the correct position.
+
+    Ruff format: path:line:col: CODE [*] message
+    The [*] marker appears immediately after the error code.
+    """
+    parts = line.split(":")
+    if len(parts) < 4:
+        return False
+
+    try:
+        int(parts[1])  # line number
+        int(parts[2])  # column number
+    except (ValueError, IndexError):
+        return False
+
+    # Get the message part after "path:line:col: "
+    code_and_msg = parts[3].strip()
+    if not code_and_msg:
+        return False
+
+    # Split into code and message, check if message starts with [*]
+    words = code_and_msg.split(maxsplit=1)
+    if len(words) < 2:
+        return False
+
+    code, msg = words[0], words[1]
+    if not _looks_like_lint_code(code):
+        return False
+
+    return msg.lstrip().startswith("[*]")
+
+
 def _detect_linter_from_lines(lines: list[str]) -> str:
     """Detect the linter type from the output lines.
 
@@ -72,7 +105,8 @@ def _detect_linter_from_lines(lines: list[str]) -> str:
             return "ruff"
 
         # Check for [*] marker in error lines (Ruff auto-fix indicator)
-        if "[*]" in line:
+        # The marker appears right after the error code: "CODE [*] message"
+        if _has_ruff_autofix_marker(line):
             return "ruff"
 
         # Check for mypy patterns
