@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import argparse
+import re
 import sys
 from importlib.metadata import version as get_version
 from pathlib import Path
@@ -11,16 +12,38 @@ from snaplint.models import RenderOptions
 from snaplint.render import render_diff
 from snaplint.snapshot import build_snapshot_file, read_snapshot, write_snapshot
 
+# Ruff summary line patterns (appear at end of output)
+# Examples:
+#   "Found 8 errors."
+#   "[*] 6 fixable with the `--fix` option."
+RUFF_SUMMARY_RE = re.compile(
+    r"^(Found \d+ errors?\.|\[\*\] \d+ fixable with the .--fix. option)"
+)
+
 
 def _detect_linter_from_lines(lines: list[str]) -> str:
-    """Detect the linter type from the first few lines of output.
+    """Detect the linter type from the output lines.
 
-    Returns a linter name like 'flake8', 'mypy', 'pylint', or 'generic'.
+    Returns a linter name like 'ruff', 'flake8', 'mypy', 'pylint', or 'generic'.
+
+    Ruff is detected by its distinctive summary lines at the end:
+    - "Found X errors."
+    - "[*] X fixable with the --fix option."
     """
-    for line in lines[:10]:  # Check first 10 lines
+    has_flake8_style_errors = False
+
+    for line in lines:
         line = line.strip()
         if not line:
             continue
+
+        # Check for Ruff summary lines (most reliable detection)
+        if RUFF_SUMMARY_RE.match(line):
+            return "ruff"
+
+        # Check for [*] marker in error lines (Ruff auto-fix indicator)
+        if "[*]" in line:
+            return "ruff"
 
         # Check for mypy patterns
         if ": error:" in line or ": warning:" in line or ": note:" in line:
@@ -31,24 +54,28 @@ def _detect_linter_from_lines(lines: list[str]) -> str:
         if "************* Module" in line:
             return "pylint"
 
-        # Check for flake8 patterns (most common: path:line:col: CODE message)
+        # Check for flake8/ruff style errors (path:line:col: CODE message)
         parts = line.split(":")
         if len(parts) >= 4:
             try:
                 int(parts[1])  # line number
                 int(parts[2])  # column number
-                # Check if the next part starts with a code (letter + number)
                 code_part = parts[3].strip()
-                if code_part and len(code_part) > 0:
-                    first_word = code_part.split()[0]
-                    if first_word and len(first_word) >= 3:
-                        # Check if it looks like a code
-                        has_letter = first_word[0].isalpha()
-                        has_digit = any(c.isdigit() for c in first_word)
-                        if has_letter and has_digit:
-                            return "flake8"
+                if code_part:
+                    words = code_part.split()
+                    if words:
+                        first_word = words[0]
+                        if first_word and len(first_word) >= 2:
+                            has_letter = first_word[0].isalpha()
+                            has_digit = any(c.isdigit() for c in first_word)
+                            if has_letter and has_digit:
+                                has_flake8_style_errors = True
             except (ValueError, IndexError):
                 pass
+
+    # If we found flake8-style errors but no Ruff indicators, it's flake8
+    if has_flake8_style_errors:
+        return "flake8"
 
     return "generic"
 

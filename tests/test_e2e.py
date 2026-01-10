@@ -512,3 +512,254 @@ unused_var = 1
     )
     assert returncode == 0
     assert "summary: +0 -0" in stderr
+
+
+# ============================================================================
+# Ruff linter tests
+# ============================================================================
+
+
+def run_ruff(project_dir: Path, target: Path | None = None) -> str:
+    """Run ruff check on the project and return output in concise format."""
+    target_path = target or (project_dir / "src")
+    try:
+        result = subprocess.run(
+            ["ruff", "check", "--output-format", "concise", str(target_path)],
+            capture_output=True,
+            text=True,
+            cwd=project_dir,
+        )
+        return result.stdout
+    except FileNotFoundError:
+        pytest.skip("ruff not installed")
+
+
+def test_e2e_ruff_full_workflow(project_dir: Path):
+    """Test complete workflow with ruff: take snapshot, modify code, diff changes."""
+    snapshot_file = project_dir / "lint.snapshot.json.gz"
+
+    # Step 1: Run ruff and take initial snapshot
+    initial_lint_output = run_ruff(project_dir)
+    assert initial_lint_output  # Should have some lint errors
+
+    returncode, stdout, stderr = run_snaplint(
+        project_dir, "take-snapshot", snapshot_file, stdin=initial_lint_output
+    )
+    assert returncode == 0
+    assert snapshot_file.exists()
+    assert "Snapshot written" in stderr
+
+    # Verify snapshot is valid JSON
+    import json
+
+    with gzip.open(snapshot_file, "rt", encoding="utf-8") as f:
+        snapshot_data = json.load(f)
+    assert snapshot_data["version"] == "1"
+    assert len(snapshot_data["files"]) > 0
+
+    # Step 2: Run diff with same output - should show no changes
+    returncode, stdout, stderr = run_snaplint(
+        project_dir, "diff", snapshot_file, stdin=initial_lint_output
+    )
+    assert returncode == 0  # No new issues
+    assert "summary: +0 -0" in stderr
+
+    # Step 3: Fix one issue - remove unused import from main.py
+    main_file = project_dir / "src" / "main.py"
+    main_file.write_text(
+        """
+from typing import List
+
+def main():
+    result = calculate(5, 3)
+    print(result)
+
+def calculate(a, b):
+    return a + b
+"""
+    )
+
+    # Run linter again and diff
+    new_lint_output = run_ruff(project_dir)
+    returncode, stdout, stderr = run_snaplint(
+        project_dir, "diff", snapshot_file, stdin=new_lint_output
+    )
+    assert returncode == 0  # No new issues (only removed)
+    assert "summary: +0 -" in stderr  # Should show removed errors
+
+    # Step 4: Introduce a new error
+    utils_file = project_dir / "src" / "utils.py"
+    utils_file.write_text(
+        """
+def calculate(x, y):
+    unused_var = 10
+    another_unused = 20
+    return x + y
+
+def format_string(text):
+    return text.strip()
+"""
+    )
+
+    # Run linter and diff
+    new_lint_output = run_ruff(project_dir)
+    returncode, stdout, stderr = run_snaplint(
+        project_dir, "diff", snapshot_file, stdin=new_lint_output
+    )
+    assert returncode == 1  # New issues found
+    assert "summary: +" in stderr  # Should show added errors
+    assert "+" in stdout  # Should show added lines
+
+
+def test_e2e_ruff_auto_detect_linter(project_dir: Path):
+    """Test that ruff output is auto-detected and uses correct snapshot filename."""
+    # Use a separate directory to avoid interference
+    isolated_dir = project_dir / "ruff_test"
+    isolated_dir.mkdir()
+    test_file = isolated_dir / "test.py"
+
+    # Create file with lint errors
+    test_file.write_text(
+        """import sys
+import os
+unused_var = 1
+"""
+    )
+
+    # Run ruff
+    lint_output = run_ruff(project_dir, isolated_dir)
+    assert lint_output  # Should have lint errors
+
+    # Take snapshot without specifying path (auto-detect)
+    result = subprocess.run(
+        [sys.executable, "-m", "snaplint.cli", "take-snapshot"],
+        input=lint_output,
+        capture_output=True,
+        text=True,
+        cwd=project_dir,
+    )
+    assert result.returncode == 0
+    assert "Auto-detected linter: ruff" in result.stderr
+
+    # Verify the snapshot file was created with the correct name
+    expected_snapshot = project_dir / ".snaplint" / "snapshot.ruff.json.gz"
+    assert expected_snapshot.exists(), (
+        f"Expected snapshot at {expected_snapshot}, "
+        f"got files: {list((project_dir / '.snaplint').iterdir()) if (project_dir / '.snaplint').exists() else 'no .snaplint dir'}"
+    )
+
+    # Diff should also auto-detect ruff
+    result = subprocess.run(
+        [sys.executable, "-m", "snaplint.cli", "diff"],
+        input=lint_output,
+        capture_output=True,
+        text=True,
+        cwd=project_dir,
+    )
+    assert result.returncode == 0
+    assert "Auto-detected linter: ruff" in result.stderr
+    assert "summary: +0 -0" in result.stderr
+
+
+def test_e2e_ruff_vs_flake8_distinction(project_dir: Path):
+    """Test that ruff and flake8 are correctly distinguished.
+
+    Both linters produce similar output format but should be detected separately.
+    """
+    # Use a separate directory to avoid interference
+    isolated_dir = project_dir / "distinction_test"
+    isolated_dir.mkdir()
+    test_file = isolated_dir / "test.py"
+
+    # Create file with lint errors
+    test_file.write_text(
+        """import sys
+import os
+unused_var = 1
+"""
+    )
+
+    # Run ruff
+    ruff_output = run_ruff(project_dir, isolated_dir)
+
+    # Run flake8
+    try:
+        flake8_result = subprocess.run(
+            ["flake8", str(isolated_dir)],
+            capture_output=True,
+            text=True,
+            cwd=project_dir,
+        )
+        flake8_output = flake8_result.stdout
+    except FileNotFoundError:
+        pytest.skip("flake8 not installed")
+
+    # Both outputs should parse correctly and have similar structure
+    assert ruff_output  # Ruff should find issues
+    assert flake8_output  # Flake8 should find issues
+
+    # Take snapshot with ruff output (no explicit path)
+    result = subprocess.run(
+        [sys.executable, "-m", "snaplint.cli", "take-snapshot"],
+        input=ruff_output,
+        capture_output=True,
+        text=True,
+        cwd=project_dir,
+    )
+    assert result.returncode == 0
+    assert "Auto-detected linter: ruff" in result.stderr
+
+    # Now verify flake8 output is detected as flake8
+    result = subprocess.run(
+        [sys.executable, "-m", "snaplint.cli", "take-snapshot"],
+        input=flake8_output,
+        capture_output=True,
+        text=True,
+        cwd=project_dir,
+    )
+    assert result.returncode == 0
+    assert "Auto-detected linter: flake8" in result.stderr
+
+
+def test_e2e_ruff_code_refactoring_preserves_errors(project_dir: Path):
+    """Test that refactoring code (changing line numbers) is detected properly with ruff."""
+    snapshot_file = project_dir / "lint.snapshot.json.gz"
+    utils_file = project_dir / "src" / "utils.py"
+
+    # Initial code with error on line 3
+    utils_file.write_text(
+        """
+def calculate(x, y):
+    unused_var = 10
+    return x + y
+"""
+    )
+
+    # Take snapshot
+    initial_lint_output = run_ruff(project_dir)
+    returncode, _, _ = run_snaplint(
+        project_dir, "take-snapshot", snapshot_file, stdin=initial_lint_output
+    )
+    assert returncode == 0
+
+    # Refactor: Add lines at the top (error moves to different line number)
+    utils_file.write_text(
+        """
+# New comment
+# Another comment
+
+def calculate(x, y):
+    unused_var = 10
+    return x + y
+"""
+    )
+
+    # Run diff - the unused_var is still there, just on a different line
+    # Since we hash error_type + source_code_line, it should still match
+    new_lint_output = run_ruff(project_dir)
+    returncode, stdout, stderr = run_snaplint(
+        project_dir, "diff", snapshot_file, stdin=new_lint_output
+    )
+
+    # The error is the same (same code line content), so it should be unchanged
+    assert "unchanged" in stderr.lower()

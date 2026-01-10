@@ -15,6 +15,14 @@ FLAKE8_RE: Final[Pattern[str]] = re.compile(
     r"(?P<code>[A-Z]+\d+) (?P<msg>.+)$"
 )
 
+# Ruff uses the same format as flake8 but often includes [*] marker
+# for auto-fixable issues. Detection at the line level uses [*] marker;
+# detection at the stream level uses summary lines.
+RUFF_RE: Final[Pattern[str]] = re.compile(
+    r"^(?P<path>(?:\./)?[^:]+):(?P<line>\d+):(?P<col>\d+): "
+    r"(?P<code>[A-Z]+\d+) (?P<msg>.+)$"
+)
+
 MYPY_RE: Final[Pattern[str]] = re.compile(
     r"^(?P<path>[^:]+):(?P<line>\d+):(?:(?P<col>\d+):)? "
     r"(?P<level>error|warning|note): (?P<msg>.+?)(?:\s+\[(?P<code>[a-z-]+)\])?$"
@@ -49,16 +57,24 @@ def _parse_line(line: str) -> IssueLine | None:
     if not line:
         return None
 
-    # Flake8
-    if match := FLAKE8_RE.match(line):
+    # Check for Ruff/Flake8 format (they share the same format)
+    # At the individual line level, we use [*] marker to detect Ruff
+    # For stream-level detection, see cli._detect_linter_from_lines
+    if match := RUFF_RE.match(line):
+        code = str(match.group("code"))
+        msg = match.group("msg")
+
+        # Ruff adds [*] marker for auto-fixable issues
+        is_ruff = "[*]" in msg
+
         return IssueLine(
             original=line,
-            tool="flake",
+            tool="ruff" if is_ruff else "flake",
             path=str(match.group("path")),
             line=int(match.group("line")),
             column=int(match.group("col")),
-            code=str(match.group("code")),
-            message=_normalize_message(match.group("msg")),
+            code=code,
+            message=_normalize_message(msg),
         )
 
     # Mypy
