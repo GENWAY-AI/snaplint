@@ -21,6 +21,36 @@ RUFF_SUMMARY_RE = re.compile(
 )
 
 
+def _looks_like_lint_code(text: str) -> bool:
+    """Check if text looks like a linter error code (e.g., F401, E501, W293).
+
+    A lint code typically starts with a letter and contains at least one digit.
+    """
+    if not text or len(text) < 2:
+        return False
+    return text[0].isalpha() and any(c.isdigit() for c in text)
+
+
+def _has_flake8_style_error(line: str) -> bool:
+    """Check if a line matches flake8-style format: path:line:col: CODE message."""
+    parts = line.split(":")
+    if len(parts) < 4:
+        return False
+
+    try:
+        int(parts[1])  # line number
+        int(parts[2])  # column number
+    except (ValueError, IndexError):
+        return False
+
+    code_part = parts[3].strip()
+    if not code_part:
+        return False
+
+    first_word = code_part.split()[0] if code_part.split() else ""
+    return _looks_like_lint_code(first_word)
+
+
 def _detect_linter_from_lines(lines: list[str]) -> str:
     """Detect the linter type from the output lines.
 
@@ -55,23 +85,8 @@ def _detect_linter_from_lines(lines: list[str]) -> str:
             return "pylint"
 
         # Check for flake8/ruff style errors (path:line:col: CODE message)
-        parts = line.split(":")
-        if len(parts) >= 4:
-            try:
-                int(parts[1])  # line number
-                int(parts[2])  # column number
-                code_part = parts[3].strip()
-                if code_part:
-                    words = code_part.split()
-                    if words:
-                        first_word = words[0]
-                        if first_word and len(first_word) >= 2:
-                            has_letter = first_word[0].isalpha()
-                            has_digit = any(c.isdigit() for c in first_word)
-                            if has_letter and has_digit:
-                                has_flake8_style_errors = True
-            except (ValueError, IndexError):
-                pass
+        if _has_flake8_style_error(line):
+            has_flake8_style_errors = True
 
     # If we found flake8-style errors but no Ruff indicators, it's flake8
     if has_flake8_style_errors:
