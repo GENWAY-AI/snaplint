@@ -43,8 +43,7 @@ jobs:
         run: |
           python -m pip install --upgrade pip
           pip install uv
-          uv venv
-          uv pip install -e .[dev]
+          uv sync --extra dev
       - name: Check uv.lock is up-to-date
         run: |
           uv lock --check

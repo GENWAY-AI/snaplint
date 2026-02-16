@@ -20,20 +20,17 @@ def project_dir(tmp_path: Path) -> Path:
     (project / "src").mkdir()
 
     # File 1: utils.py
-    (project / "src" / "utils.py").write_text(
-        """
+    (project / "src" / "utils.py").write_text("""
 def calculate(x, y):
     unused_var = 10
     return x + y
 
 def format_string(text):
     return text.strip()
-"""
-    )
+""")
 
     # File 2: main.py
-    (project / "src" / "main.py").write_text(
-        """
+    (project / "src" / "main.py").write_text("""
 import sys
 import os
 from typing import List
@@ -44,19 +41,16 @@ def main():
 
 def calculate(a, b):
     return a + b
-"""
-    )
+""")
 
     # File 3: config.py
-    (project / "src" / "config.py").write_text(
-        """
+    (project / "src" / "config.py").write_text("""
 DEBUG = True
 API_URL = "https://api.example.com"
 
 def get_config():
     return {"debug": DEBUG, "url": API_URL}
-"""
-    )
+""")
 
     return project
 
@@ -122,8 +116,7 @@ def test_e2e_full_workflow(project_dir: Path):
 
     # Step 3: Fix one issue - remove unused import from main.py
     main_file = project_dir / "src" / "main.py"
-    main_file.write_text(
-        """
+    main_file.write_text("""
 from typing import List
 
 def main():
@@ -132,8 +125,7 @@ def main():
 
 def calculate(a, b):
     return a + b
-"""
-    )
+""")
 
     # Run linter again and diff
     new_lint_output = run_flake8(project_dir)
@@ -146,8 +138,7 @@ def calculate(a, b):
 
     # Step 4: Introduce a new error
     utils_file = project_dir / "src" / "utils.py"
-    utils_file.write_text(
-        """
+    utils_file.write_text("""
 def calculate(x, y):
     unused_var = 10
     another_unused = 20
@@ -155,8 +146,7 @@ def calculate(x, y):
 
 def format_string(text):
     return text.strip()
-"""
-    )
+""")
 
     # Run linter and diff
     new_lint_output = run_flake8(project_dir)
@@ -174,13 +164,11 @@ def test_e2e_code_refactoring_preserves_errors(project_dir: Path):
     utils_file = project_dir / "src" / "utils.py"
 
     # Initial code with error on line 3
-    utils_file.write_text(
-        """
+    utils_file.write_text("""
 def calculate(x, y):
     unused_var = 10
     return x + y
-"""
-    )
+""")
 
     # Take snapshot
     initial_lint_output = run_flake8(project_dir)
@@ -190,16 +178,14 @@ def calculate(x, y):
     assert returncode == 0
 
     # Refactor: Add lines at the top (error moves to different line number)
-    utils_file.write_text(
-        """
+    utils_file.write_text("""
 # New comment
 # Another comment
 
 def calculate(x, y):
     unused_var = 10
     return x + y
-"""
-    )
+""")
 
     # Run diff - the unused_var is still there, just on a different line
     # Since we hash error_type + source_code_line, it should still match
@@ -225,27 +211,23 @@ def test_e2e_multiple_files_complex_diff(project_dir: Path):
 
     # Make changes to multiple files
     # 1. Fix one error in utils.py
-    (project_dir / "src" / "utils.py").write_text(
-        """
+    (project_dir / "src" / "utils.py").write_text("""
 def calculate(x, y):
     return x + y
 
 def format_string(text):
     return text.strip()
-"""
-    )
+""")
 
     # 2. Add new error in config.py
-    (project_dir / "src" / "config.py").write_text(
-        """
+    (project_dir / "src" / "config.py").write_text("""
 DEBUG = True
 API_URL = "https://api.example.com"
 UNUSED_VAR = 123
 
 def get_config():
     return {"debug": DEBUG, "url": API_URL}
-"""
-    )
+""")
 
     # 3. Keep main.py the same
 
@@ -267,13 +249,11 @@ def test_e2e_order_change_detection(project_dir: Path):
     test_file = project_dir / "order_test.py"
 
     # Create file with multiple errors in specific order
-    test_file.write_text(
-        """
+    test_file.write_text("""
 unused_a = 1
 unused_b = 2
 unused_c = 3
-"""
-    )
+""")
 
     # Take snapshot
     initial_lint_output = run_flake8(project_dir)
@@ -283,13 +263,11 @@ unused_c = 3
     assert returncode == 0
 
     # Reorder the lines (errors will be reported in different order)
-    test_file.write_text(
-        """
+    test_file.write_text("""
 unused_c = 3
 unused_a = 1
 unused_b = 2
-"""
-    )
+""")
 
     # Run diff
     new_lint_output = run_flake8(project_dir)
@@ -310,12 +288,10 @@ def test_e2e_snapshot_with_no_errors(project_dir: Path):
     clean_file = project_dir / "clean.py"
 
     # Create a file with no lint errors
-    clean_file.write_text(
-        """
+    clean_file.write_text("""
 def hello_world():
     return "Hello, World!"
-"""
-    )
+""")
 
     # Run flake8 on clean file only
     try:
@@ -380,8 +356,7 @@ def test_e2e_large_codebase_simulation(project_dir: Path):
     # Create multiple files with various errors
     for i in range(10):
         file_path = project_dir / f"file_{i}.py"
-        file_path.write_text(
-            f"""
+        file_path.write_text(f"""
 import unused_import_{i}
 
 unused_var_{i} = {i}
@@ -389,8 +364,7 @@ unused_var_{i} = {i}
 def func_{i}(x):
     another_unused = {i * 2}
     return x + {i}
-"""
-        )
+""")
 
     # Run linter
     try:
@@ -420,12 +394,10 @@ def func_{i}(x):
     # Fix errors in half the files
     for i in range(5):
         file_path = project_dir / f"file_{i}.py"
-        file_path.write_text(
-            f"""
+        file_path.write_text(f"""
 def func_{i}(x):
     return x + {i}
-"""
-        )
+""")
 
     # Run diff
     new_lint_output = run_flake8(project_dir)
@@ -448,12 +420,10 @@ def test_e2e_update_snapshot_workflow(project_dir: Path):
     test_file = isolated_dir / "evolving.py"
 
     # Version 1: Initial code with 3 errors
-    test_file.write_text(
-        """import sys
+    test_file.write_text("""import sys
 import os
 unused_var = 1
-"""
-    )
+""")
 
     # Run flake8 only on isolated directory
     try:
@@ -473,11 +443,9 @@ unused_var = 1
     assert returncode == 0
 
     # Version 2: Fix one import error, keep other errors
-    test_file.write_text(
-        """import sys
+    test_file.write_text("""import sys
 unused_var = 1
-"""
-    )
+""")
 
     try:
         result = subprocess.run(
@@ -566,8 +534,7 @@ def test_e2e_ruff_full_workflow(project_dir: Path):
 
     # Step 3: Fix one issue - remove unused import from main.py
     main_file = project_dir / "src" / "main.py"
-    main_file.write_text(
-        """
+    main_file.write_text("""
 from typing import List
 
 def main():
@@ -576,8 +543,7 @@ def main():
 
 def calculate(a, b):
     return a + b
-"""
-    )
+""")
 
     # Run linter again and diff
     new_lint_output = run_ruff(project_dir)
@@ -589,8 +555,7 @@ def calculate(a, b):
 
     # Step 4: Introduce a new error
     utils_file = project_dir / "src" / "utils.py"
-    utils_file.write_text(
-        """
+    utils_file.write_text("""
 def calculate(x, y):
     unused_var = 10
     another_unused = 20
@@ -598,8 +563,7 @@ def calculate(x, y):
 
 def format_string(text):
     return text.strip()
-"""
-    )
+""")
 
     # Run linter and diff
     new_lint_output = run_ruff(project_dir)
@@ -619,12 +583,10 @@ def test_e2e_ruff_auto_detect_linter(project_dir: Path):
     test_file = isolated_dir / "test.py"
 
     # Create file with lint errors
-    test_file.write_text(
-        """import sys
+    test_file.write_text("""import sys
 import os
 unused_var = 1
-"""
-    )
+""")
 
     # Run ruff
     lint_output = run_ruff(project_dir, isolated_dir)
@@ -672,12 +634,10 @@ def test_e2e_ruff_vs_flake8_distinction(project_dir: Path):
     test_file = isolated_dir / "test.py"
 
     # Create file with lint errors
-    test_file.write_text(
-        """import sys
+    test_file.write_text("""import sys
 import os
 unused_var = 1
-"""
-    )
+""")
 
     # Run ruff
     ruff_output = run_ruff(project_dir, isolated_dir)
@@ -727,13 +687,11 @@ def test_e2e_ruff_code_refactoring_preserves_errors(project_dir: Path):
     utils_file = project_dir / "src" / "utils.py"
 
     # Initial code with error on line 3
-    utils_file.write_text(
-        """
+    utils_file.write_text("""
 def calculate(x, y):
     unused_var = 10
     return x + y
-"""
-    )
+""")
 
     # Take snapshot
     initial_lint_output = run_ruff(project_dir)
@@ -743,16 +701,14 @@ def calculate(x, y):
     assert returncode == 0
 
     # Refactor: Add lines at the top (error moves to different line number)
-    utils_file.write_text(
-        """
+    utils_file.write_text("""
 # New comment
 # Another comment
 
 def calculate(x, y):
     unused_var = 10
     return x + y
-"""
-    )
+""")
 
     # Run diff - the unused_var is still there, just on a different line
     # Since we hash error_type + source_code_line, it should still match
@@ -790,8 +746,7 @@ def test_e2e_mypy_full_workflow(project_dir: Path):
     snapshot_file = project_dir / "lint.snapshot.json.gz"
 
     # Create files with type errors
-    (project_dir / "src" / "typed.py").write_text(
-        """
+    (project_dir / "src" / "typed.py").write_text("""
 def add_numbers(a: int, b: int) -> int:
     return a + b
 
@@ -799,8 +754,7 @@ def broken_types(x: str) -> int:
     return x  # type error: returning str instead of int
 
 result: str = add_numbers(1, 2)  # type error: assigning int to str
-"""
-    )
+""")
 
     # Step 1: Run mypy and take initial snapshot
     initial_lint_output = run_mypy(project_dir)
@@ -829,8 +783,7 @@ result: str = add_numbers(1, 2)  # type error: assigning int to str
     assert "summary: +0 -0" in stderr
 
     # Step 3: Fix one type error
-    (project_dir / "src" / "typed.py").write_text(
-        """
+    (project_dir / "src" / "typed.py").write_text("""
 def add_numbers(a: int, b: int) -> int:
     return a + b
 
@@ -838,8 +791,7 @@ def broken_types(x: str) -> int:
     return x  # type error: returning str instead of int
 
 result: int = add_numbers(1, 2)  # Fixed: now correctly typed as int
-"""
-    )
+""")
 
     # Run linter again and diff
     new_lint_output = run_mypy(project_dir)
@@ -858,14 +810,12 @@ def test_e2e_mypy_auto_detect_linter(project_dir: Path):
     test_file = isolated_dir / "test.py"
 
     # Create file with type errors
-    test_file.write_text(
-        """
+    test_file.write_text("""
 def greet(name: str) -> str:
     return name
 
 x: int = greet("hello")  # type error
-"""
-    )
+""")
 
     # Run mypy
     lint_output = run_mypy(project_dir, isolated_dir)
